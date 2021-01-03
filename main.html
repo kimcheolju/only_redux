@@ -27,9 +27,14 @@
                 while(i<state.contents.length) {
                     liTags = liTags 
                         + `<li>
-                            <a href="${state.contents[i].id}.html">${state.contents[i].title}</a>
-                        </li>`;
-                        
+                            <a onclick="
+                            event.preventDefault();
+                            var action = {type:'SELECT', id:${state.contents[i].id}, mode:'read'};
+                            store.dispatch(action);
+                            " href="${state.contents[i].id}.html">
+                                ${state.contents[i].title}
+                            </a>
+                        </li>`;                
                     i = i + 1;
                 }
 
@@ -46,33 +51,136 @@
             function control() {
                 document.querySelector('#control').innerHTML=`
                 <ul>
-                    <l1><a href="/create">create</a></l1>
-                    <l1><input type="button" value="delete"></l1>
+                    <li><a onclick="
+                        event.preventDefault();
+                        store.dispatch({
+                            type:'CHANGE_MODE',
+                            mode:'create'
+                        })
+                        " href="/create">create</a></li>
+                    <li>
+                        <input onclick="
+                            store.dispatch({
+                                type:'DELETE'
+                            })
+                        " type="button" value="delete">
+                    </li>
                 </ul>
                 `;
             }
 
             function article() {
-                document.querySelector('#content').innerHTML=`
-                <article>
-                    <h2>HTML</h2>
-                    HTML is ...
-                </article>
-                `;
+                var state = store.getState();
+                if(state.mode === 'create') {
+                    document.querySelector('#content').innerHTML=`
+                        <form onsubmit="
+                        event.preventDefault();
+                            var _title = this.title.value;
+                            var _desc = this.desc.value;
+                            store.dispatch({
+                                type:'CREATE',
+                                title:_title,
+                                desc:_desc
+                            });
+                        ">
+                            <p>
+                                <input type="text" name="title" 
+                                placeholder="title" >    
+                            </p>
+                            <p>
+                                <textarea name="desc" placeholder="description"></textarea>
+                            </p>
+                            <p>
+                                <input type="submit">
+                            </p>
+                        </form>
+                    `;
+                } else if(state.mode === 'read'){
+                    var i = 0;
+                    var aTitle, aDesc;
+                    while(i < state.contents.length) {
+                        if(state.contents[i].id == state.selected_id) {
+                            aTitle = state.contents[i].title;
+                            aDesc = state.contents[i].desc;
+                            break;
+                        }
+                        i = i + 1;
+                    }
+
+                    document.querySelector('#content').innerHTML=`
+                    <article>
+                        <h2>${aTitle}</h2>
+                        ${aDesc}
+                    </article>
+                    `;
+                } else  if (state.mode === 'welcome') {
+                    document.querySelector('#content').innerHTML=`
+                    <article>
+                        <h2>WELCOME</h2>
+                        HELLO REDUX!!!
+                    </article>
+                    `;
+                }
             }
 
             function reducer(state, action) {
                 if(state === undefined) {
                     return {
+                        max_id:2,
+                        mode: 'create',
+                        selected_id: 1,
                         contents: [
                             {id:1,title:'HTML',desc:'HTML is ...'},
                             {id:2,title:'CSS',desc:'CSS is ...'}
                         ]
                     };
                 }
+
+                var newState;
+                if(action.type === 'SELECT') {
+                    newState = Object.assign({}, state, {
+                        selected_id: action.id,
+                        mode: 'read'
+                    });
+                } else if (action.type === 'CREATE') {
+                    var newMaxId = state.max_id + 1;
+                    var newContent = state.contents.concat();
+                    newContent.push({
+                        id: newMaxId,
+                        title:action.title,
+                        desc:action.desc
+                    });
+
+                    newState = Object.assign({}, state, {
+                        max_id: newMaxId,
+                        contents: newContent,
+                        mode:'read'
+                    });
+                } else if (action.type === 'DELETE') {
+                    var newContents = [];
+                    var i = 0;
+                    while(i < state.contents.length) {
+                        if(state.selected_id !== state.contents[i].id) {
+                            newContents.push(state.contents[i]);
+                        }
+                        i = i + 1;
+                    }
+                    newState = Object.assign({},state,{
+                        contents:newContents,
+                        mode: 'welcome'
+                    })
+                } else if (action.type === 'CHANGE_MODE') {
+                    newState = Object.assign({},state,{
+                        mode: action.mode
+                    })
+                }
+
+                return newState;
             }
 
             var store = Redux.createStore(reducer);
+            store.subscribe(article);
+            store.subscribe(TOC);
 
             subject();
             TOC();
